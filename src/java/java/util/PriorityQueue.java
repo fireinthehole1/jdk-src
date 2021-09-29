@@ -75,16 +75,22 @@ import sun.misc.SharedSecrets;
  * <p>This class is a member of the
  * <a href="{@docRoot}/../technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
- *
+ *  二叉堆介绍：堆中某个节点的值总是不大于或不小于其父节点的值；堆总是一棵完全树。
+ *  基于数组实现的二叉堆，对于数组中任意位置的n上元素，其左孩子在[2n+1]位置上，
+ *  右孩子[2(n+1)]位置，它的父亲则在[(n-1)/2]上，而根的位置则是[0]
  * @since 1.5
  * @author Josh Bloch, Doug Lea
  * @param <E> the type of elements held in this collection
+ *  PriorityQueue是基于优先堆的一个队列，
+ *  这个优先队列中的元素可以默认自然排序或者通过提供的Comparator（比较器）在队列实例化的时排序
+ *  优先队列不允许空值，而且不支持non-comparable（不可比较）的对象，比如用户自定义的类。
+ *  优先队列要求使用Java Comparable和Comparator接口给对象排序，并且在排序时会按照优先级处理其中的元素。
  */
 public class PriorityQueue<E> extends AbstractQueue<E>
     implements java.io.Serializable {
 
     private static final long serialVersionUID = -7720805057305804111L;
-
+    //默认初始化大小  11
     private static final int DEFAULT_INITIAL_CAPACITY = 11;
 
     /**
@@ -94,23 +100,27 @@ public class PriorityQueue<E> extends AbstractQueue<E>
      * natural ordering, if comparator is null: For each node n in the
      * heap and each descendant d of n, n <= d.  The element with the
      * lowest value is in queue[0], assuming the queue is nonempty.
+     *  用数组实现的二叉堆
      */
     transient Object[] queue; // non-private to simplify nested class access
 
     /**
      * The number of elements in the priority queue.
+     * 队列的元素数量
      */
     private int size = 0;
 
     /**
      * The comparator, or null if priority queue uses elements'
      * natural ordering.
+     * 比较器
      */
     private final Comparator<? super E> comparator;
 
     /**
      * The number of times this priority queue has been
      * <i>structurally modified</i>.  See AbstractList for gory details.
+     * 修改版本
      */
     transient int modCount = 0; // non-private to simplify nested class access
 
@@ -118,6 +128,7 @@ public class PriorityQueue<E> extends AbstractQueue<E>
      * Creates a {@code PriorityQueue} with the default initial
      * capacity (11) that orders its elements according to their
      * {@linkplain Comparable natural ordering}.
+     * 无参构造
      */
     public PriorityQueue() {
         this(DEFAULT_INITIAL_CAPACITY, null);
@@ -164,9 +175,12 @@ public class PriorityQueue<E> extends AbstractQueue<E>
                          Comparator<? super E> comparator) {
         // Note: This restriction of at least one is not actually needed,
         // but continues for 1.5 compatibility
+
         if (initialCapacity < 1)
             throw new IllegalArgumentException();
+        // 初始化 数组
         this.queue = new Object[initialCapacity];
+        // 如果构造中未传 comparator,则入队元素必须实现 comparator
         this.comparator = comparator;
     }
 
@@ -185,12 +199,15 @@ public class PriorityQueue<E> extends AbstractQueue<E>
      *         queue's ordering
      * @throws NullPointerException if the specified collection or any
      *         of its elements are null
+     *         根据集合构造一个优先队列
      */
     @SuppressWarnings("unchecked")
     public PriorityQueue(Collection<? extends E> c) {
         if (c instanceof SortedSet<?>) {
             SortedSet<? extends E> ss = (SortedSet<? extends E>) c;
+            //设置比较器
             this.comparator = (Comparator<? super E>) ss.comparator();
+            // 从集合中初始化元素
             initElementsFromCollection(ss);
         }
         else if (c instanceof PriorityQueue<?>) {
@@ -253,8 +270,10 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     }
 
     private void initElementsFromCollection(Collection<? extends E> c) {
+        // 将集合转换为数组
         Object[] a = c.toArray();
         // If c.toArray incorrectly doesn't return Object[], copy it.
+        //如果转换后的数组a类型不是Object数组，则转换为Object数组
         if (a.getClass() != Object[].class)
             a = Arrays.copyOf(a, a.length, Object[].class);
         int len = a.length;
@@ -262,6 +281,7 @@ public class PriorityQueue<E> extends AbstractQueue<E>
             for (int i = 0; i < len; i++)
                 if (a[i] == null)
                     throw new NullPointerException();
+        // 将数组a赋值给队列的底层数组queue
         this.queue = a;
         this.size = a.length;
     }
@@ -292,10 +312,12 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     private void grow(int minCapacity) {
         int oldCapacity = queue.length;
         // Double size if small; else grow by 50%
+        // 如果当前队列长度小于64, 就扩容一倍，否则扩容50%
         int newCapacity = oldCapacity + ((oldCapacity < 64) ?
                                          (oldCapacity + 2) :
                                          (oldCapacity >> 1));
         // overflow-conscious code
+        // 如果超过 Integer.MAX_VALUE - 8
         if (newCapacity - MAX_ARRAY_SIZE > 0)
             newCapacity = hugeCapacity(minCapacity);
         queue = Arrays.copyOf(queue, newCapacity);
@@ -304,6 +326,7 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     private static int hugeCapacity(int minCapacity) {
         if (minCapacity < 0) // overflow
             throw new OutOfMemoryError();
+        // 当前容量+1 如果大于 Integer.MAX_VALUE - 8 返回Integer.MAX_VALUE
         return (minCapacity > MAX_ARRAY_SIZE) ?
             Integer.MAX_VALUE :
             MAX_ARRAY_SIZE;
@@ -334,9 +357,12 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     public boolean offer(E e) {
         if (e == null)
             throw new NullPointerException();
+
         modCount++;
         int i = size;
+        //如果 当前队列满了
         if (i >= queue.length)
+            // 扩容
             grow(i + 1);
         size = i + 1;
         if (i == 0)
@@ -584,15 +610,20 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * 取出第一个元素，然后重组整个结构
+     */
     public E poll() {
         if (size == 0)
             return null;
         int s = --size;
         modCount++;
         E result = (E) queue[0];
+        // 取出末尾元素
         E x = (E) queue[s];
         queue[s] = null;
         if (s != 0)
+            // 重构二叉树
             siftDown(0, x);
         return result;
     }
@@ -638,8 +669,9 @@ public class PriorityQueue<E> extends AbstractQueue<E>
      * Comparable and Comparator versions are separated into different
      * methods that are otherwise identical. (Similarly for siftDown.)
      *
-     * @param k the position to fill
-     * @param x the item to insert
+     * @param k the position to fill 表示新插入元素在数组的位置
+     * @param x the item to insert  表示新插入元素
+     *          上移
      */
     private void siftUp(int k, E x) {
         if (comparator != null)
@@ -650,15 +682,24 @@ public class PriorityQueue<E> extends AbstractQueue<E>
 
     @SuppressWarnings("unchecked")
     private void siftUpComparable(int k, E x) {
+        // 拿到比较器
         Comparable<? super E> key = (Comparable<? super E>) x;
+        // 如果不是第一个元素
         while (k > 0) {
+            // 计算元素x的父节点位置[(n-1)/2]
             int parent = (k - 1) >>> 1;
+            // 取出x的父亲e
             Object e = queue[parent];
+            // 如果新增的元素k比其父亲e大，则不需要"上移"，跳出循环结束
             if (key.compareTo((E) e) >= 0)
                 break;
+            // x比父亲小，则需要进行"上移"
+            // 将父元素移到当前元素的位置
             queue[k] = e;
+            // 标记 当前元素的位置，但数组中还未赋值
             k = parent;
         }
+        // 最终设置元素的位置
         queue[k] = key;
     }
 
@@ -693,19 +734,28 @@ public class PriorityQueue<E> extends AbstractQueue<E>
     @SuppressWarnings("unchecked")
     private void siftDownComparable(int k, E x) {
         Comparable<? super E> key = (Comparable<? super E>)x;
+        // 通过size/2找到一个没有叶子节点的元素
         int half = size >>> 1;        // loop while a non-leaf
+        // 比较位置k和half，如果k小于half，则k位置的元素就不是叶子节点
         while (k < half) {
+            // 找到根元素的左孩子的位置[2n+1]
             int child = (k << 1) + 1; // assume left child is least
+            // 左孩子的元素
             Object c = queue[child];
             int right = child + 1;
+            // 如果左孩子大于右孩子，则将c复制为右孩子的值，这里也就是找出左右孩子哪个最小
             if (right < size &&
                 ((Comparable<? super E>) c).compareTo((E) queue[right]) > 0)
                 c = queue[child = right];
+            //如果队尾元素比根元素孩子都要小，则不需"下移"，结束
             if (key.compareTo((E) c) <= 0)
                 break;
+            // 队尾元素比根元素孩子都大，则需要"下移"
             queue[k] = c;
+            // 将根元素位置k指向最小孩子的位置，进入下层循环
             k = child;
         }
+        // 找到队尾元素x的合适位置k之后进行赋值
         queue[k] = key;
     }
 

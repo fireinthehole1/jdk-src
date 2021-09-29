@@ -66,6 +66,15 @@ import java.util.*;
  * @since 1.5
  * @author Doug Lea
  * @param <E> the type of elements held in this collection
+ * DelayQueue是一个没有边界BlockingQueue实现，加入其中的元素必需实现Delayed接口
+ * 当生产者线程调用put之类的方法加入元素时，会触发Delayed接口中的compareTo方法进行排序，
+ * 也就是说队列中元素的顺序是按到期时间排序的，而非它们进入队列的顺序。
+ * 排在队列头部的元素是最早到期的，越往后到期时间赿晚。
+ * 消费者线程查看队列头部的元素，注意是查看不是取出。然后调用元素的getDelay方法，
+ * 如果此方法返回的值小０或者等于０，则消费者线程会从队列中取出此元素，并进行处理。
+ * 如果getDelay方法返回的值大于0，则消费者线程wait返回的时间值后，再从队列头部取出元素，此时元素应该已经到期
+ * 消费者线程处于等待状态时，总是等待最先到期的元素，而不是长时间的等待。
+ * 消费者线程尽量把时间花在处理任务上，最小化空等的时间，以提高线程的利用效率
  */
 public class DelayQueue<E extends Delayed> extends AbstractQueue<E>
     implements BlockingQueue<E> {
