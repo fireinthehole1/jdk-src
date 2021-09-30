@@ -133,7 +133,9 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * @since 1.5
  * @see CountDownLatch
- *
+ *  初始化一个阈值，表示需要等待的线程数量，
+ *  每调用一次await（），会判断count是否为 0 了，如果为0 了就唤醒所有 在条件队列中的线程
+ *  如果满足 count 不为 0 ，标识还需要等待，就将当前线程加入条件队列
  * @author Doug Lea
  */
 public class CyclicBarrier {
