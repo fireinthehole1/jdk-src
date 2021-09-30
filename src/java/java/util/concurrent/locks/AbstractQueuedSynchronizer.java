@@ -391,7 +391,7 @@ public abstract class AbstractQueuedSynchronizer
         //只有上一个节点是SIGNAL，当前节点才有可能被上一个节点唤醒
         static final int SIGNAL    = -1;
         /** waitStatus value to indicate thread is waiting on condition */
-        //此节点当前在条件队列中。
+        // 此节点当前在条件队列中。
         // 标记为CONDITION的节点会被移动到一个特殊的条件等待队列（此时状态将设置为0），
         // 直到条件时才会被重新移动到同步等待队列 。（此处使用此值与字段的其他用途无关，但简化了机制。）
         static final int CONDITION = -2;
@@ -1950,7 +1950,7 @@ public abstract class AbstractQueuedSynchronizer
      * false:表示当前线程是在signaled后发生了中断
      */
     final boolean transferAfterCancelledWait(Node node) {
-        // 尝试将 等待状态从 condition 改为 0，如果改成功则返回true
+        // 尝试将 等待状态从 condition 改为 0，如果改成功则加入同步队列返回true
         if (compareAndSetWaitStatus(node, Node.CONDITION, 0)) {
             enq(node);
             return true;
@@ -2380,27 +2380,33 @@ public abstract class AbstractQueuedSynchronizer
                 throw new InterruptedException();
             //加入条件等待队列 当前node状态 -2
             Node node = addConditionWaiter();
-            //
+            // 释放获取的锁 CHL 队列中
             int savedState = fullyRelease(node);
             /**
              * 截至时间
              */
             final long deadline = System.nanoTime() + nanosTimeout;
-            System.out.println(11);
             int interruptMode = 0;
+            // 判断条件队列中的元素是否也在 同步队列中
             while (!isOnSyncQueue(node)) {
+                // 如果到截至时间了
                 if (nanosTimeout <= 0L) {
+                    // 从条件队列中加到 同步队列中
                     transferAfterCancelledWait(node);
                     break;
                 }
+                // 超过自旋阈值，就将线程挂起
                 if (nanosTimeout >= spinForTimeoutThreshold)
                     LockSupport.parkNanos(this, nanosTimeout);
                 if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
                     break;
                 nanosTimeout = deadline - System.nanoTime();
             }
+
+            // 加入 同步队列
             if (acquireQueued(node, savedState) && interruptMode != THROW_IE)
                 interruptMode = REINTERRUPT;
+            // 从 等待队列中 此处已经取消的节点
             if (node.nextWaiter != null)
                 unlinkCancelledWaiters();
             if (interruptMode != 0)
