@@ -152,10 +152,17 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  *
  * @since 1.5
  * @author Doug Lea
+ * 信号量：设定一个阈值a，当有线程来申请资源b，用CAS+FOR循环将a减少。
+ *      如果得到结果小于0，申请资源失败，加入同步队列，等待资源释放
+ *      如果获取成功，则将a值替换为a-b
+ * 实现分为公平和非公平：区别在于CAS+ FOR循环申请资源时，会判断同步队列是否有线程在等待，如果有就退出循环，将当前线程加入同步队列
  */
 public class Semaphore implements java.io.Serializable {
     private static final long serialVersionUID = -3222578661600680210L;
     /** All mechanics via AbstractQueuedSynchronizer subclass */
+    /**
+     * 同步器
+     */
     private final Sync sync;
 
     /**
@@ -166,14 +173,27 @@ public class Semaphore implements java.io.Serializable {
     abstract static class Sync extends AbstractQueuedSynchronizer {
         private static final long serialVersionUID = 1192457210091910933L;
 
+        /**
+         * 设置 信号量
+         * @param permits
+         */
         Sync(int permits) {
             setState(permits);
         }
 
+        /**
+         * 返回当前信号量
+         * @return
+         */
         final int getPermits() {
             return getState();
         }
 
+        /**
+         * 不公平的获取信号量
+         * @param acquires
+         * @return
+         */
         final int nonfairTryAcquireShared(int acquires) {
             for (;;) {
                 int available = getState();
@@ -184,6 +204,11 @@ public class Semaphore implements java.io.Serializable {
             }
         }
 
+        /**
+         * 释放锁，把信号量加回去
+         * @param releases
+         * @return
+         */
         protected final boolean tryReleaseShared(int releases) {
             for (;;) {
                 int current = getState();
@@ -217,6 +242,7 @@ public class Semaphore implements java.io.Serializable {
 
     /**
      * NonFair version
+     * 不公平的同步器
      */
     static final class NonfairSync extends Sync {
         private static final long serialVersionUID = -2694183684443567898L;
@@ -232,6 +258,7 @@ public class Semaphore implements java.io.Serializable {
 
     /**
      * Fair version
+     * 公平的同步器
      */
     static final class FairSync extends Sync {
         private static final long serialVersionUID = 2014338818796000944L;
@@ -242,10 +269,12 @@ public class Semaphore implements java.io.Serializable {
 
         protected int tryAcquireShared(int acquires) {
             for (;;) {
+                // 如果有等待者，不参与竞争
                 if (hasQueuedPredecessors())
                     return -1;
                 int available = getState();
                 int remaining = available - acquires;
+                // 如果剩余信号量不够了，就不竞争，否则设置状态
                 if (remaining < 0 ||
                     compareAndSetState(available, remaining))
                     return remaining;
@@ -262,6 +291,7 @@ public class Semaphore implements java.io.Serializable {
      *        must occur before any acquires will be granted.
      */
     public Semaphore(int permits) {
+        // 默认是不公平的
         sync = new NonfairSync(permits);
     }
 
@@ -277,6 +307,7 @@ public class Semaphore implements java.io.Serializable {
      *        else {@code false}
      */
     public Semaphore(int permits, boolean fair) {
+        // 公平或者非公平
         sync = fair ? new FairSync(permits) : new NonfairSync(permits);
     }
 
@@ -307,6 +338,7 @@ public class Semaphore implements java.io.Serializable {
      * interrupted status is cleared.
      *
      * @throws InterruptedException if the current thread is interrupted
+     * 先尝试获取信号量，如果返回负值，就加入同步队列
      */
     public void acquire() throws InterruptedException {
         sync.acquireSharedInterruptibly(1);
@@ -330,6 +362,7 @@ public class Semaphore implements java.io.Serializable {
      * the time it would have received the permit had no interruption
      * occurred.  When the thread does return from this method its interrupt
      * status will be set.
+     *
      */
     public void acquireUninterruptibly() {
         sync.acquireShared(1);
@@ -358,6 +391,7 @@ public class Semaphore implements java.io.Serializable {
      *
      * @return {@code true} if a permit was acquired and {@code false}
      *         otherwise
+     *         尝试获取信号量，并返回获取结果
      */
     public boolean tryAcquire() {
         return sync.nonfairTryAcquireShared(1) >= 0;
@@ -403,6 +437,7 @@ public class Semaphore implements java.io.Serializable {
      * @return {@code true} if a permit was acquired and {@code false}
      *         if the waiting time elapsed before a permit was acquired
      * @throws InterruptedException if the current thread is interrupted
+     * 在规定时间内获取信号量
      */
     public boolean tryAcquire(long timeout, TimeUnit unit)
         throws InterruptedException {
